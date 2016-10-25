@@ -25,8 +25,8 @@ setDynIpH hostInfos port ios =
     [] -> usage
     (hostInfo:_) ->
       case (addrAddress hostInfo) of
+        _ -> usage
         SockAddrInet _ addr ->
           connect ios (SockAddrInet (fromInteger port) addr)
-        _ -> usage
 
 usage = putStrLn "usage: set-dyn-ip host port"
