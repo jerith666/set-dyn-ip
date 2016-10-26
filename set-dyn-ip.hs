@@ -1,7 +1,15 @@
+-- nix-shell -p "haskellPackages.ghcWithPackages (pkgs: [pkgs.network pkgs.amazonka])"
 
 import System.Environment
 import System.IO
+
 import Network.Socket hiding (send, sendTo, recv, recvFrom)
+
+import Control.Monad.Trans.AWS
+
+import Network.AWS.Auth
+import Network.AWS.Data.Text
+import Network.AWS.Env
 
 main = do args <- getArgs
           case args of
@@ -30,8 +38,13 @@ setDynIpH hostInfos port ios =
           do connect ios (SockAddrInet (fromInteger port) addr)
              ioh <- socketToHandle ios ReadMode
              externIp <- hGetLine ioh
-             putStrLn $ "got external ip " ++ externIp ++ "."
              hClose ioh
+             changeIpAddr externIp
         _ -> usage
+
+changeIpAddr :: String -> IO ()
+changeIpAddr externIp = do
+    env <- newEnv NorthVirginia (FromEnv (toText "AWS_ACCESS_KEY") (toText "AWS_SECRET_KEY") Nothing)
+    putStrLn $ "got external ip " ++ externIp ++ "."
 
 usage = putStrLn "usage: set-dyn-ip host port"
