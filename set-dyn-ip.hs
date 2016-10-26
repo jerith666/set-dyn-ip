@@ -31,6 +31,7 @@ setDynIpH hostInfos port ios =
              ioh <- socketToHandle ios ReadMode
              externIp <- hGetLine ioh
              putStrLn $ "got external ip " ++ externIp ++ "."
+             hClose ioh
         _ -> usage
 
 usage = putStrLn "usage: set-dyn-ip host port"
