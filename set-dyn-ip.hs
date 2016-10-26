@@ -1,5 +1,6 @@
 
 import System.Environment
+import System.IO
 import Network.Socket hiding (send, sendTo, recv, recvFrom)
 
 main = do args <- getArgs
@@ -25,8 +26,11 @@ setDynIpH hostInfos port ios =
     [] -> usage
     (hostInfo:_) ->
       case (addrAddress hostInfo) of
-        _ -> usage
         SockAddrInet _ addr ->
-          connect ios (SockAddrInet (fromInteger port) addr)
+          do connect ios (SockAddrInet (fromInteger port) addr)
+             ioh <- socketToHandle ios ReadMode
+             externIp <- hGetLine ioh
+             putStrLn $ "got external ip " ++ externIp ++ "."
+        _ -> usage
 
 usage = putStrLn "usage: set-dyn-ip host port"
