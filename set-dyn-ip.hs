@@ -1,7 +1,9 @@
--- nix-shell -p "haskellPackages.ghcWithPackages (pkgs: [pkgs.network pkgs.amazonka])"
+-- nix-shell -p "haskellPackages.ghcWithPackages (pkgs: with pkgs; [network amazonka amazonka-route53])"
 
 import System.Environment
 import System.IO
+
+import Data.List.NonEmpty
 
 import Network.Socket hiding (send, sendTo, recv, recvFrom)
 
@@ -10,6 +12,8 @@ import Control.Monad.Trans.AWS
 import Network.AWS.Auth
 import Network.AWS.Data.Text
 import Network.AWS.Env
+import Network.AWS.Route53.Types
+import Network.AWS.Route53.ChangeResourceRecordSets
 
 main = do args <- getArgs
           case args of
@@ -44,7 +48,17 @@ setDynIpH hostInfos port ios =
 
 changeIpAddr :: String -> IO ()
 changeIpAddr externIp = do
-    env <- newEnv NorthVirginia (FromEnv (toText "AWS_ACCESS_KEY") (toText "AWS_SECRET_KEY") Nothing)
     putStrLn $ "got external ip " ++ externIp ++ "."
+    env <- newEnv NorthVirginia
+                  (FromEnv (toText "AWS_ACCESS_KEY")
+                           (toText "AWS_SECRET_KEY")
+                           Nothing)
+    runResourceT . runAWST env $ do
+        send $ changeResourceRecordSets (toText "hostedZoneId")
+                                        (changeBatch $ change Upsert
+                                                              (resourceRecordSet (toText "name")
+                                                                                 A)
+                                                       :| [] )
+    return ()
 
 usage = putStrLn "usage: set-dyn-ip host port"
