@@ -57,10 +57,12 @@ changeIpAddr zone externIp = do
                            Nothing)
     runResourceT . runAWST env $ do
         rrs <- resourceRecordSet (toText "name") A
-            & rrsResourceRecords .~ Just (resourceRecord (toText externIp) :| [])
+        rrs2 <- set rrsResourceRecords
+                    (Just (resourceRecord (toText externIp) :| []))
+                    rrs
         send $ changeResourceRecordSets (toText zone)
                                         (changeBatch $ change Upsert
-                                                              rrs
+                                                              rrs2
                                                        :| [] )
     return ()
 
