@@ -56,7 +56,7 @@ changeIpAddr zone externIp = do
                            (toText "AWS_SECRET_KEY")
                            Nothing)
     runResourceT . runAWST env $ do
-        rrs <- resourceRecordSet (toText "name") A
+        let rrs = resourceRecordSet (toText "name") A
         send $ changeResourceRecordSets (toText zone)
                                         (changeBatch $ change Upsert
                                                               rrs
