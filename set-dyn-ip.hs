@@ -7,6 +7,7 @@ import Data.List.NonEmpty
 
 import Network.Socket hiding (send, sendTo, recv, recvFrom)
 
+import Control.Lens
 import Control.Monad.Trans.AWS
 
 import Network.AWS.Auth
@@ -55,10 +56,11 @@ changeIpAddr zone externIp = do
                            (toText "AWS_SECRET_KEY")
                            Nothing)
     runResourceT . runAWST env $ do
+        rrs <- resourceRecordSet (toText "name") A
+            & rrsResourceRecords .~ Just (resourceRecord (toText externIp) :| [])
         send $ changeResourceRecordSets (toText zone)
                                         (changeBatch $ change Upsert
-                                                              (resourceRecordSet (toText "name")
-                                                                                 A)
+                                                              rrs
                                                        :| [] )
     return ()
 
