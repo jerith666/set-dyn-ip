@@ -52,11 +52,12 @@ setDynIpH zone host hostInfos port ios =
 changeIpAddr :: String -> String -> String -> IO ()
 changeIpAddr zone host externIp = do
     putStrLn $ "got external ip " ++ externIp ++ "."
+    logg <- newLogger Trace stdout
     env <- newEnv NorthVirginia
                   (FromEnv (toText "AWS_ACCESS_KEY")
                            (toText "AWS_SECRET_KEY")
                            Nothing)
-    runResourceT . runAWST env $ do
+    runResourceT . runAWST (env & envLogger .~ logg) $ do
         let rrs = resourceRecordSet (toText host) A
                 & rrsResourceRecords ?~ resourceRecord (toText externIp) :| []
         send $ changeResourceRecordSets (toText zone)
