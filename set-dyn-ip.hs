@@ -18,24 +18,25 @@ import Network.AWS.Route53.ChangeResourceRecordSets
 
 main = do args <- getArgs
           case args of
-               []          -> usage
-               (z:[])      -> usage
-               (z:h:[])    -> usage
-               (z:h:p:[])  -> setDynIpStr z h p
-               (x:y:z:w:_) -> usage
+               []            -> usage
+               (z:[])        -> usage
+               (z:t:[])      -> usage
+               (z:t:h:[])    -> usage
+               (z:t:h:p:[])  -> setDynIpStr z t h p
+               (x:y:z:w:v:_) -> usage
 
-setDynIpStr :: String -> String -> String -> IO ()
-setDynIpStr zone host portStr = do case (reads portStr) of
-                                        [] -> usage
-                                        [(p, _)] -> setDynIp zone host p
+setDynIpStr :: String -> String -> String -> String -> IO ()
+setDynIpStr zone tgtHost host portStr = do case (reads portStr) of
+                                                [] -> usage
+                                                [(p, _)] -> setDynIp zone tgtHost host p
 
-setDynIp :: String -> String -> Integer -> IO ()
-setDynIp zone host port = do ios <- socket AF_INET Stream defaultProtocol
-                             hostInfos <- getAddrInfo (Just defaultHints) (Just host) Nothing
-                             setDynIpH zone hostInfos port ios
+setDynIp :: String -> String -> String -> Integer -> IO ()
+setDynIp zone tgtHost host port = do ios <- socket AF_INET Stream defaultProtocol
+                                     hostInfos <- getAddrInfo (Just defaultHints) (Just host) Nothing
+                                     setDynIpH zone tgtHost hostInfos port ios
 
-setDynIpH :: String -> [AddrInfo] -> Integer -> Socket -> IO ()
-setDynIpH zone hostInfos port ios =
+setDynIpH :: String -> String -> [AddrInfo] -> Integer -> Socket -> IO ()
+setDynIpH zone host hostInfos port ios =
   case hostInfos of
     [] -> usage
     (hostInfo:_) ->
@@ -45,18 +46,18 @@ setDynIpH zone hostInfos port ios =
              ioh <- socketToHandle ios ReadMode
              externIp <- hGetLine ioh
              hClose ioh
-             changeIpAddr zone externIp
+             changeIpAddr zone host externIp
         _ -> usage
 
-changeIpAddr :: String -> String -> IO ()
-changeIpAddr zone externIp = do
+changeIpAddr :: String -> String -> String -> IO ()
+changeIpAddr zone host externIp = do
     putStrLn $ "got external ip " ++ externIp ++ "."
     env <- newEnv NorthVirginia
                   (FromEnv (toText "AWS_ACCESS_KEY")
                            (toText "AWS_SECRET_KEY")
                            Nothing)
     runResourceT . runAWST env $ do
-        let rrs = resourceRecordSet (toText "name") A
+        let rrs = resourceRecordSet (toText host) A
                 & rrsResourceRecords ?~ resourceRecord (toText externIp) :| []
         send $ changeResourceRecordSets (toText zone)
                                         (changeBatch $ change Upsert
@@ -64,4 +65,4 @@ changeIpAddr zone externIp = do
                                                        :| [] )
     return ()
 
-usage = putStrLn "usage: set-dyn-ip zoneid host port"
+usage = putStrLn "usage: set-dyn-ip zoneid tgthost host port"
