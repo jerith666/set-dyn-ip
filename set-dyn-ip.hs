@@ -60,6 +60,7 @@ changeIpAddr zone host externIp = do
     runResourceT . runAWST (env & envLogger .~ logg) $ do
         let rrs = resourceRecordSet (toText host) A
                 & rrsResourceRecords ?~ resourceRecord (toText externIp) :| []
+                & rrsTTL ?~ 300
         send $ changeResourceRecordSets (toText zone)
                                         (changeBatch $ change Upsert
                                                               rrs
