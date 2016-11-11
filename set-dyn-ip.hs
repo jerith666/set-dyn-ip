@@ -51,7 +51,6 @@ setDynIpH zone host hostInfos port ios =
 
 changeIpAddr :: String -> String -> String -> IO ()
 changeIpAddr zone host externIp = do
-    putStrLn $ "got external ip " ++ externIp ++ "."
     env <- newEnv NorthVirginia
                   (FromEnv (toText "AWS_ACCESS_KEY")
                            (toText "AWS_SECRET_KEY")
@@ -64,6 +63,7 @@ changeIpAddr zone host externIp = do
                                         (changeBatch $ change Upsert
                                                               rrs
                                                        :| [] )
+    putStrLn $ "set A record for " ++ host ++ " = " ++ externIp
     return ()
 
 usage = putStrLn "usage: set-dyn-ip zoneid tgthost host port"
