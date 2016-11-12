@@ -22,21 +22,21 @@ main = do args <- getArgs
                (z:[])        -> usage
                (z:t:[])      -> usage
                (z:t:h:[])    -> usage
-               (z:t:h:p:[])  -> setDynIpStr z t h p
+               (z:t:h:p:[])  -> setDynIpStr z [t] h p
                (x:y:z:w:v:_) -> usage
 
-setDynIpStr :: String -> String -> String -> String -> IO ()
-setDynIpStr zone tgtHost host portStr = do case (reads portStr) of
-                                                [] -> usage
-                                                [(p, _)] -> setDynIp zone tgtHost host p
+setDynIpStr :: String -> [String] -> String -> String -> IO ()
+setDynIpStr zone tgtHosts host portStr = do case (reads portStr) of
+                                                 [] -> usage
+                                                 [(p, _)] -> setDynIp zone tgtHosts host p
 
-setDynIp :: String -> String -> String -> Integer -> IO ()
-setDynIp zone tgtHost host port = do ios <- socket AF_INET Stream defaultProtocol
-                                     hostInfos <- getAddrInfo (Just defaultHints) (Just host) Nothing
-                                     setDynIpH zone tgtHost hostInfos port ios
+setDynIp :: String -> [String] -> String -> Integer -> IO ()
+setDynIp zone tgtHosts host port = do ios <- socket AF_INET Stream defaultProtocol
+                                      hostInfos <- getAddrInfo (Just defaultHints) (Just host) Nothing
+                                      setDynIpH zone tgtHosts hostInfos port ios
 
-setDynIpH :: String -> String -> [AddrInfo] -> Integer -> Socket -> IO ()
-setDynIpH zone host hostInfos port ios =
+setDynIpH :: String -> [String] -> [AddrInfo] -> Integer -> Socket -> IO ()
+setDynIpH zone hosts hostInfos port ios =
   case hostInfos of
     [] -> usage
     (hostInfo:_) ->
@@ -46,8 +46,13 @@ setDynIpH zone host hostInfos port ios =
              ioh <- socketToHandle ios ReadMode
              externIp <- hGetLine ioh
              hClose ioh
-             changeIpAddr zone host externIp
+             changeIpAddrs zone hosts externIp
         _ -> usage
+
+changeIpAddrs :: String -> [String] -> String -> IO ()
+changeIpAddrs zone hosts externIp = do
+    mapM (\h -> changeIpAddr zone h externIp) hosts
+    return ()
 
 changeIpAddr :: String -> String -> String -> IO ()
 changeIpAddr zone host externIp = do
