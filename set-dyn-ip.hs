@@ -20,10 +20,10 @@ main = do args <- getArgs
           case args of
                []            -> usage
                (z:[])        -> usage
-               (z:t:[])      -> usage
-               (z:t:h:[])    -> usage
-               (z:t:h:p:[])  -> setDynIpStr z [t] h p
-               (x:y:z:w:v:_) -> usage
+               (z:h:[])      -> usage
+               (z:h:p:[])    -> usage
+               (z:h:p:t:[])  -> setDynIpStr z [t] h p
+               (z:h:p:t:ts)  -> setDynIpStr z (t:ts) h p
 
 setDynIpStr :: String -> [String] -> String -> String -> IO ()
 setDynIpStr zone tgtHosts host portStr = do case (reads portStr) of
@@ -71,4 +71,4 @@ changeIpAddr zone host externIp = do
     putStrLn $ "set A record for " ++ host ++ " = " ++ externIp
     return ()
 
-usage = putStrLn "usage: set-dyn-ip zoneid tgthost host port"
+usage = putStrLn "usage: set-dyn-ip zoneid host port tgthost1 [tgthost2 ...]"
