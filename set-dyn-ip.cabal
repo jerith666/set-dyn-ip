@@ -60,7 +60,7 @@ executable set-dyn-ip
   -- other-extensions:    
   
   -- Other library packages from which modules are imported.
-  build-depends:       lens, network, amazonka, amazonka-core, amazonka-route53, base >=4.9 && <4.10
+  build-depends:       lens, semigroups, network, amazonka, amazonka-core, amazonka-route53, base >=4.8 && <4.9
   
   -- Directories containing source files.
   -- hs-source-dirs:      
