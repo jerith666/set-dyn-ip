@@ -2,3 +2,5 @@
 access-key
 secret-key
 dist
+result
+set-dyn-ip.nix
