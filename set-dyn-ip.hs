@@ -56,15 +56,15 @@ changeIpAddrs zone hosts externIp = do
 
 changeIpAddr :: String -> String -> String -> IO ()
 changeIpAddr zone host externIp = do
-    env <- newEnv NorthVirginia
-                  (FromEnv (toText "AWS_ACCESS_KEY")
+    env <- newEnv (FromEnv (toText "AWS_ACCESS_KEY")
                            (toText "AWS_SECRET_KEY")
+                           Nothing
                            Nothing)
     runResourceT . runAWST env $ do
         let rrs = resourceRecordSet (toText host) A
                 & rrsResourceRecords ?~ resourceRecord (toText externIp) :| []
                 & rrsTTL ?~ 300
-        send $ changeResourceRecordSets (toText zone)
+        send $ changeResourceRecordSets (ResourceId (toText zone))
                                         (changeBatch $ change Upsert
                                                               rrs
                                                        :| [] )
