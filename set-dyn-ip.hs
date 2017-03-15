@@ -7,6 +7,7 @@ import Data.List.NonEmpty
 
 import Network.Socket hiding (send, sendTo, recv, recvFrom)
 
+import Control.Concurrent
 import Control.Lens
 import Control.Monad.Trans.AWS
 
@@ -69,6 +70,10 @@ changeIpAddr zone host externIp = do
                                                               rrs
                                                        :| [] )
     putStrLn $ "set A record for " ++ host ++ " = " ++ externIp
+    threadDelay perReqDelay
     return ()
+
+perReqDelay :: Int -- route53 throttles at 5 req/sec
+perReqDelay = 1000000 `div` 5
 
 usage = putStrLn "usage: set-dyn-ip zoneid host port tgthost1 [tgthost2 ...]"
