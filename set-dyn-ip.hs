@@ -3,6 +3,8 @@
 import System.Environment
 import System.IO
 
+import Data.Time.Clock
+
 import Data.List.NonEmpty
 
 import Network.Socket hiding (send, sendTo, recv, recvFrom)
@@ -69,7 +71,8 @@ changeIpAddr zone host externIp = do
                                         (changeBatch $ change Upsert
                                                               rrs
                                                        :| [] )
-    putStrLn $ "set A record for " ++ host ++ " = " ++ externIp
+    t <- getCurrentTime
+    putStrLn $ "at " ++ (show t ) ++ " set A record for " ++ host ++ " = " ++ externIp
     threadDelay perReqDelay
     return ()
 
