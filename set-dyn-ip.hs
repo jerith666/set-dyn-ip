@@ -76,7 +76,10 @@ changeIpAddr zone host externIp = do
     threadDelay perReqDelay
     return ()
 
-perReqDelay :: Int -- route53 throttles at 5 req/sec; go slower than that to be sure
-perReqDelay = 1000000 `div` 2
+-- route53 throttles at 5 req/sec
+-- threadDelay takes units of microseconds
+-- go slower than that to be sure
+perReqDelay :: Int
+perReqDelay = 1000000
 
 usage = putStrLn "usage: set-dyn-ip zoneid host port tgthost1 [tgthost2 ...]"
