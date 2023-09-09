@@ -1,0 +1,14 @@
+{
+    "nixpkgs": {
+        "branch": "home-alpha-i9",
+        "description": "Nix Packages collection",
+        "homepage": null,
+        "owner": "jerith666",
+        "repo": "nixpkgs",
+        "rev": "9fc35e7fae1aadf02f7662a6bf4a488cdeab65f2",
+        "sha256": "1rin944wxzjx5pg4z9f8rb6hns9qnr62r02c5ab69443pf59wxwb",
+        "type": "tarball",
+        "url": "https://github.com/jerith666/nixpkgs/archive/9fc35e7fae1aadf02f7662a6bf4a488cdeab65f2.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    }
+}
