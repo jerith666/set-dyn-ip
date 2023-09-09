@@ -59,21 +59,25 @@ changeIpAddrs zone hosts externIp = do
 
 changeIpAddr :: String -> String -> String -> IO ()
 changeIpAddr zone host externIp = do
-    env <- newEnv (FromEnv (toText "AWS_ACCESS_KEY")
-                           (toText "AWS_SECRET_KEY")
-                           Nothing
-                           Nothing)
-    runResourceT . runAWST env $ do
-        let rrs = resourceRecordSet (toText host) A
-                & rrsResourceRecords ?~ resourceRecord (toText externIp) :| []
-                & rrsTTL ?~ 300
-        send $ changeResourceRecordSets (ResourceId (toText zone))
-                                        (changeBatch $ change Upsert
-                                                              rrs
-                                                       :| [] )
-    t <- getCurrentTime
-    putStrLn $ "at " ++ (show t ) ++ " set A record for " ++ host ++ " = " ++ externIp
-    threadDelay perReqDelay
+    currentIp <- getCurrentIpAddr zone host
+    if currentIp == Just externIp
+        then putStrLn $ "The current IP address for " ++ host ++ " already matches the desired value. No changes were made."
+        else do
+            env <- newEnv (FromEnv (toText "AWS_ACCESS_KEY")
+                                   (toText "AWS_SECRET_KEY")
+                                   Nothing
+                                   Nothing)
+            runResourceT . runAWST env $ do
+                let rrs = resourceRecordSet (toText host) A
+                        & rrsResourceRecords ?~ resourceRecord (toText externIp) :| []
+                        & rrsTTL ?~ 300
+                send $ changeResourceRecordSets (ResourceId (toText zone))
+                                                (changeBatch $ change Upsert
+                                                                  rrs
+                                                           :| [] )
+            t <- getCurrentTime
+            putStrLn $ "at " ++ (show t ) ++ " set A record for " ++ host ++ " = " ++ externIp
+            threadDelay perReqDelay
     return ()
 
 -- route53 throttles at 5 req/sec
@@ -81,5 +85,16 @@ changeIpAddr zone host externIp = do
 -- go slower than that to be sure
 perReqDelay :: Int
 perReqDelay = 1000000
+
+getCurrentIpAddr :: String -> String -> IO (Maybe String)
+getCurrentIpAddr zone host = do
+    env <- newEnv (FromEnv (toText "AWS_ACCESS_KEY")
+                           (toText "AWS_SECRET_KEY")
+                           Nothing
+                           Nothing)
+    runResourceT . runAWST env $ do
+        resp <- send $ listResourceRecordSets (ResourceId (toText zone))
+        return $ find ((== toText host) . view rrsName) (view lrrsResourceRecordSets resp)
+                  >>= listToMaybe . map (view rrValue) . fromMaybe [] . view rrsResourceRecords
 
 usage = putStrLn "usage: set-dyn-ip zoneid host port tgthost1 [tgthost2 ...]"
