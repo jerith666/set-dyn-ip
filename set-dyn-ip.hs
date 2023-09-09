@@ -83,31 +83,35 @@ changeIpAddrs zone hosts externIp = do
 
 changeIpAddr :: String -> String -> String -> IO ()
 changeIpAddr zone host externIp = do
-  env <-
-    newEnv
-      ( FromEnv
-          (toText "AWS_ACCESS_KEY")
-          (toText "AWS_SECRET_KEY")
-          Nothing
-          Nothing
-      )
-  runResourceT . runAWST env $ do
-    let rrs =
-          resourceRecordSet (toText host) A
-            & rrsResourceRecords ?~ resourceRecord (toText externIp) :| []
-            & rrsTTL ?~ 300
-    send $
-      changeResourceRecordSets
-        (ResourceId (toText zone))
-        ( changeBatch $
-            change
-              Upsert
-              rrs
-              :| []
+  currentIp <- getCurrentIpAddr host
+  if currentIp == externIp then
+    putStrLn $ "The current IP address is already " ++ externIp
+  else do
+    env <-
+      newEnv
+        ( FromEnv
+            (toText "AWS_ACCESS_KEY")
+            (toText "AWS_SECRET_KEY")
+            Nothing
+            Nothing
         )
-  t <- getCurrentTime
-  putStrLn $ "at " ++ show t ++ " set A record for " ++ host ++ " = " ++ externIp
-  threadDelay perReqDelay
+    runResourceT . runAWST env $ do
+      let rrs =
+            resourceRecordSet (toText host) A
+              & rrsResourceRecords ?~ resourceRecord (toText externIp) :| []
+              & rrsTTL ?~ 300
+      send $
+        changeResourceRecordSets
+          (ResourceId (toText zone))
+          ( changeBatch $
+              change
+                Upsert
+                rrs
+                :| []
+          )
+    t <- getCurrentTime
+    putStrLn $ "at " ++ show t ++ " set A record for " ++ host ++ " = " ++ externIp
+    threadDelay perReqDelay
   return ()
 
 -- route53 throttles at 5 req/sec
@@ -115,6 +119,12 @@ changeIpAddr zone host externIp = do
 -- go slower than that to be sure
 perReqDelay :: Int
 perReqDelay = 1000000
+
+getCurrentIpAddr :: String -> IO String
+getCurrentIpAddr host = do
+  -- Fetch the current IP address from Amazon AWS Route53
+  -- Handle any errors that might occur during the fetch operation
+  -- Return the current IP address as a string
 
 usage :: IO ()
 usage = putStrLn "usage: set-dyn-ip zoneid host port tgthost1 [tgthost2 ...]"
