@@ -63,10 +63,7 @@ changeIpAddr zone host externIp = do
     if currentIp == Just externIp
         then putStrLn $ "The current IP address for " ++ host ++ " already matches the desired value. No changes were made."
         else do
-            env <- newEnv (FromEnv (toText "AWS_ACCESS_KEY")
-                                   (toText "AWS_SECRET_KEY")
-                                   Nothing
-                                   Nothing)
+            env <- createEnv
             runResourceT . runAWST env $ do
                 let rrs = resourceRecordSet (toText host) A
                         & rrsResourceRecords ?~ resourceRecord (toText externIp) :| []
@@ -86,12 +83,15 @@ changeIpAddr zone host externIp = do
 perReqDelay :: Int
 perReqDelay = 1000000
 
+createEnv :: IO Env
+createEnv = newEnv (FromEnv (toText "AWS_ACCESS_KEY")
+                            (toText "AWS_SECRET_KEY")
+                            Nothing
+                            Nothing)
+
 getCurrentIpAddr :: String -> String -> IO (Maybe String)
 getCurrentIpAddr zone host = do
-    env <- newEnv (FromEnv (toText "AWS_ACCESS_KEY")
-                           (toText "AWS_SECRET_KEY")
-                           Nothing
-                           Nothing)
+    env <- createEnv
     runResourceT . runAWST env $ do
         resp <- send $ listResourceRecordSets (ResourceId (toText zone))
         return $ find ((== toText host) . view rrsName) (view lrrsResourceRecordSets resp)
