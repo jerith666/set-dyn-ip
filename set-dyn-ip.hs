@@ -91,23 +91,27 @@ changeIpAddr zone host externIp = do
           Nothing
           Nothing
       )
-  runResourceT . runAWST env $ do
-    let rrs =
-          resourceRecordSet (toText host) A
-            & rrsResourceRecords ?~ resourceRecord (toText externIp) :| []
-            & rrsTTL ?~ 300
-    send $
-      changeResourceRecordSets
-        (ResourceId (toText zone))
-        ( changeBatch $
-            change
-              Upsert
-              rrs
-              :| []
-        )
-  t <- getCurrentTime
-  putStrLn $ "at " ++ show t ++ " set A record for " ++ host ++ " = " ++ externIp
-  threadDelay perReqDelay
+  currentIp <- listResourceRecordSets (ResourceId (toText zone))
+  if currentIp == externIp
+    then putStrLn "The current IP address already has the desired value."
+    else do
+      runResourceT . runAWST env $ do
+        let rrs =
+              resourceRecordSet (toText host) A
+                & rrsResourceRecords ?~ resourceRecord (toText externIp) :| []
+                & rrsTTL ?~ 300
+        send $
+          changeResourceRecordSets
+            (ResourceId (toText zone))
+            ( changeBatch $
+                change
+                  Upsert
+                  rrs
+                  :| []
+            )
+      t <- getCurrentTime
+      putStrLn $ "at " ++ show t ++ " set A record for " ++ host ++ " = " ++ externIp
+      threadDelay perReqDelay
   return ()
 
 -- route53 throttles at 5 req/sec
