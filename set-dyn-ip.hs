@@ -3,15 +3,17 @@
 import System.Environment
 import System.IO
 
-import Data.Time.Clock
-
-import Data.List.NonEmpty
-
-import Network.Socket hiding (send, sendTo, recv, recvFrom)
-
-import Control.Concurrent
-import Control.Lens
-import Control.Monad.Trans.AWS
+```haskell
+getCurrentIpAddr :: String -> String -> IO (Maybe String)
+getCurrentIpAddr zone host = do
+    env <- createEnv
+    runResourceT . runAWST env $ do
+        resp <- send $ listResourceRecordSets (ResourceId (toText zone))
+        let recordSet = find ((== toText host) . view rrsName) (view lrrsResourceRecordSets resp)
+        case recordSet of
+            Just rs -> return $ listToMaybe . map (view rrValue) . fromMaybe [] . view rrsResourceRecords $ rs
+            Nothing -> return Nothing
+```
 
 import Network.AWS.Auth
 import Network.AWS.Data.Text
