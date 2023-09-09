@@ -3,7 +3,6 @@ access-key
 secret-key
 dist
 result
-set-dyn-ip.nix
 .vscode
 dist-newstyle
 set-dyn-ip
