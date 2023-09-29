@@ -5,10 +5,10 @@
         "homepage": null,
         "owner": "jerith666",
         "repo": "nixpkgs",
-        "rev": "9fc35e7fae1aadf02f7662a6bf4a488cdeab65f2",
-        "sha256": "1rin944wxzjx5pg4z9f8rb6hns9qnr62r02c5ab69443pf59wxwb",
+        "rev": "d38b0a4eba2bdc3a9532accd4e8579843ed819f0",
+        "sha256": "144mdhmwixl4z5asdv4nm4p5cwhjy1ig01sq35cv333hmyz2i1p0",
         "type": "tarball",
-        "url": "https://github.com/jerith666/nixpkgs/archive/9fc35e7fae1aadf02f7662a6bf4a488cdeab65f2.tar.gz",
+        "url": "https://github.com/jerith666/nixpkgs/archive/d38b0a4eba2bdc3a9532accd4e8579843ed819f0.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }

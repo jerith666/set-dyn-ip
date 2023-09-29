@@ -1,31 +1,37 @@
--- nix-shell -p "haskellPackages.ghcWithPackages (pkgs: with pkgs; [network amazonka amazonka-route53])"
+{-# OPTIONS_GHC -Wall #-}
+{-# OPTIONS_GHC -Wcompat #-}
+{-# OPTIONS_GHC -Werror #-}
+{-# OPTIONS_GHC -Wincomplete-record-updates #-}
+{-# OPTIONS_GHC -Wincomplete-uni-patterns #-}
+{-# OPTIONS_GHC -Wno-type-defaults #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# OPTIONS_GHC -Wredundant-constraints #-}
 
+{-# HLINT ignore "Use if" #-}
+
+import Amazonka (discover, runResourceT, send)
+import Amazonka.Data.Text (ToText (toText))
+import Amazonka.Env (newEnv)
+import Amazonka.Route53
+  ( ChangeAction (ChangeAction_UPSERT),
+    RRType (RRType_A),
+    newChange,
+    newChangeBatch,
+    newChangeResourceRecordSets,
+    newResourceRecord,
+    newResourceRecordSet,
+  )
+import Amazonka.Route53.ChangeResourceRecordSets (changeResourceRecordSetsResponse_httpStatus)
+import Amazonka.Route53.Types
+  ( ResourceId (ResourceId),
+    resourceRecordSet_resourceRecords,
+    resourceRecordSet_ttl,
+  )
 import Control.Concurrent (threadDelay)
 import Control.Lens ((&), (?~))
-import Control.Monad.Trans.AWS
-  ( runAWST,
-    runResourceT,
-    send,
-  )
+import Control.Lens.Getter (view)
 import Data.List.NonEmpty (NonEmpty ((:|)))
 import Data.Time.Clock (getCurrentTime)
-import Network.AWS.Auth (Credentials (FromEnv))
-import Network.AWS.Data.Text (ToText (toText))
-import Network.AWS.Env (newEnv)
-import Network.AWS.Route53.ChangeResourceRecordSets
-  ( changeResourceRecordSets,
-  )
-import Network.AWS.Route53.Types
-  ( ChangeAction (Upsert),
-    RecordType (A),
-    ResourceId (ResourceId),
-    change,
-    changeBatch,
-    resourceRecord,
-    resourceRecordSet,
-    rrsResourceRecords,
-    rrsTTL,
-  )
 import Network.Socket
   ( AddrInfo (addrAddress),
     Family (AF_INET),
@@ -53,8 +59,8 @@ main = do
 setDynIpStr :: String -> [String] -> String -> String -> IO ()
 setDynIpStr zone tgtHosts host portStr = do
   case reads portStr of
-    [] -> usage
     [(p, _)] -> setDynIp zone tgtHosts host p
+    _ -> usage
 
 setDynIp :: String -> [String] -> String -> Integer -> IO ()
 setDynIp zone tgtHosts host port = do
@@ -83,30 +89,27 @@ changeIpAddrs zone hosts externIp = do
 
 changeIpAddr :: String -> String -> String -> IO ()
 changeIpAddr zone host externIp = do
-  env <-
-    newEnv
-      ( FromEnv
-          (toText "AWS_ACCESS_KEY")
-          (toText "AWS_SECRET_KEY")
-          Nothing
-          Nothing
-      )
-  runResourceT . runAWST env $ do
-    let rrs =
-          resourceRecordSet (toText host) A
-            & rrsResourceRecords ?~ resourceRecord (toText externIp) :| []
-            & rrsTTL ?~ 300
-    send $
-      changeResourceRecordSets
-        (ResourceId (toText zone))
-        ( changeBatch $
-            change
-              Upsert
-              rrs
-              :| []
-        )
+  env <- newEnv discover
+  let rrs =
+        newResourceRecordSet (toText host) RRType_A
+          & resourceRecordSet_resourceRecords ?~ newResourceRecord (toText externIp) :| []
+          & resourceRecordSet_ttl ?~ 300
+      changeRrs =
+        newChangeResourceRecordSets
+          (ResourceId (toText zone))
+          ( newChangeBatch $
+              newChange
+                ChangeAction_UPSERT
+                rrs
+                :| []
+          )
+  changeRrsResp <- runResourceT $ send env changeRrs
   t <- getCurrentTime
-  putStrLn $ "at " ++ show t ++ " set A record for " ++ host ++ " = " ++ externIp
+  let respCode = view changeResourceRecordSetsResponse_httpStatus changeRrsResp
+      respDescr = case respCode < 400 of
+        True -> " successfully set A record for "
+        False -> " failed (" ++ show respCode ++ ") to set A record for "
+  putStrLn $ "at " ++ show t ++ respDescr ++ host ++ " = " ++ externIp
   threadDelay perReqDelay
   return ()
 
