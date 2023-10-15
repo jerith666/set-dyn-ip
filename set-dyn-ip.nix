@@ -11,7 +11,7 @@
 }:
 mkDerivation {
   pname = "set-dyn-ip";
-  version = "0.1.1.3";
+  version = "1.0.0.0";
   src = ./.;
   isLibrary = false;
   isExecutable = true;

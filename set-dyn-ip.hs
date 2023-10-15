@@ -9,8 +9,8 @@
 
 {-# HLINT ignore "Use if" #-}
 
-import Amazonka (discover, runResourceT, send)
-import Amazonka.Data.Text (ToText (toText))
+import Amazonka (Env, discover, runResourceT, send)
+import Amazonka.Data.Text (ToText (toText), fromText)
 import Amazonka.Env (newEnv)
 import Amazonka.Route53
   ( ChangeAction (ChangeAction_UPSERT),
@@ -18,10 +18,20 @@ import Amazonka.Route53
     newChange,
     newChangeBatch,
     newChangeResourceRecordSets,
+    newListResourceRecordSets,
     newResourceRecord,
     newResourceRecordSet,
   )
-import Amazonka.Route53.ChangeResourceRecordSets (changeResourceRecordSetsResponse_httpStatus)
+import Amazonka.Route53.Lens
+  ( changeResourceRecordSetsResponse_httpStatus,
+    listResourceRecordSetsResponse_httpStatus,
+    listResourceRecordSetsResponse_resourceRecordSets,
+    listResourceRecordSets_startRecordName,
+    listResourceRecordSets_startRecordType,
+    resourceRecordSet_name,
+    resourceRecordSet_type,
+    resourceRecord_value,
+  )
 import Amazonka.Route53.Types
   ( ResourceId (ResourceId),
     resourceRecordSet_resourceRecords,
@@ -90,28 +100,65 @@ changeIpAddrs zone hosts externIp = do
 changeIpAddr :: String -> String -> String -> IO ()
 changeIpAddr zone host externIp = do
   env <- newEnv discover
-  let rrs =
-        newResourceRecordSet (toText host) RRType_A
-          & resourceRecordSet_resourceRecords ?~ newResourceRecord (toText externIp) :| []
-          & resourceRecordSet_ttl ?~ 300
-      changeRrs =
-        newChangeResourceRecordSets
-          (ResourceId (toText zone))
-          ( newChangeBatch $
-              newChange
-                ChangeAction_UPSERT
-                rrs
-                :| []
-          )
-  changeRrsResp <- runResourceT $ send env changeRrs
-  t <- getCurrentTime
-  let respCode = view changeResourceRecordSetsResponse_httpStatus changeRrsResp
-      respDescr = case respCode < 400 of
-        True -> " successfully set A record for "
-        False -> " failed (" ++ show respCode ++ ") to set A record for "
-  putStrLn $ "at " ++ show t ++ respDescr ++ host ++ " = " ++ externIp
-  threadDelay perReqDelay
-  return ()
+  currentIp <- getIpAddr env zone host
+  case currentIp == Just externIp of
+    True -> do
+      t <- getCurrentTime
+      putStrLn $ "at " ++ show t ++ " A record for " ++ host ++ " already is " ++ externIp
+      return ()
+    False -> do
+      let rrs =
+            newResourceRecordSet (toText host) RRType_A
+              & resourceRecordSet_resourceRecords ?~ newResourceRecord (toText externIp) :| []
+              & resourceRecordSet_ttl ?~ 300
+          changeRrs =
+            newChangeResourceRecordSets
+              (ResourceId (toText zone))
+              ( newChangeBatch $
+                  newChange
+                    ChangeAction_UPSERT
+                    rrs
+                    :| []
+              )
+      changeRrsResp <- runResourceT $ send env changeRrs
+      t <- getCurrentTime
+      let respCode = view changeResourceRecordSetsResponse_httpStatus changeRrsResp
+          respDescr = case respCode < 400 of
+            True -> " successfully set A record for "
+            False -> " failed (" ++ show respCode ++ ") to set A record for "
+      putStrLn $ "at " ++ show t ++ respDescr ++ host ++ " = " ++ externIp
+      threadDelay perReqDelay
+      return ()
+
+getIpAddr :: Env -> String -> String -> IO (Maybe String)
+getIpAddr env zone host = do
+  let listRrs =
+        newListResourceRecordSets (ResourceId (toText zone))
+          & listResourceRecordSets_startRecordName ?~ toText host
+          & listResourceRecordSets_startRecordType ?~ RRType_A
+  listRrsResp <- runResourceT $ send env listRrs
+  let respCode = view listResourceRecordSetsResponse_httpStatus listRrsResp
+  case respCode < 400 of
+    False -> return Nothing
+    True ->
+      case view listResourceRecordSetsResponse_resourceRecordSets listRrsResp of
+        rrSet : _ ->
+          let name = view resourceRecordSet_name rrSet
+              typE = view resourceRecordSet_type rrSet
+              mRRs = view resourceRecordSet_resourceRecords rrSet
+           in case (name == toText host || (name == toText (host ++ "."))) && typE == RRType_A of
+                False -> return Nothing
+                True ->
+                  case mRRs of
+                    Nothing -> return Nothing
+                    Just rrs ->
+                      case rrs of
+                        rr :| [] ->
+                          case fromText $ view resourceRecord_value rr of
+                            Right rrValue -> return $ Just rrValue
+                            Left _ -> return Nothing
+                        _ -> return Nothing
+        _ -> return Nothing
 
 -- route53 throttles at 5 req/sec
 -- threadDelay takes units of microseconds
